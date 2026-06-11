@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Talk to Paper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans h-screen flex flex-col">
+
+    <header class="bg-gray-800 p-4 border-b border-gray-700 shadow-md">
+        <h1 class="text-xl font-bold text-teal-400">Academic Paper Summarizer & Chatbot</h1>
+    </header>
+
+    <main class="flex flex-1 overflow-hidden">
+        
+        <section class="w-1/3 bg-gray-800 p-6 border-r border-gray-700 flex flex-col overflow-y-auto">
+            <h2 class="text-lg font-semibold mb-4 text-gray-300">Upload PDF Paper</h2>
+            <form id="uploadForm" class="mb-6">
+                <input type="file" id="pdfFile" accept=".pdf" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-teal-600 file:text-white hover:file:bg-teal-500 cursor-pointer mb-3"/>
+                <button type="submit" id="uploadBtn" class="w-full bg-teal-600 hover:bg-teal-500 text-white font-medium py-2 px-4 rounded-md transition duration-200">Process & Summarize</button>
+            </form>
+
+            <div id="summaryContainer" class="hidden">
+                <h3 class="text-md font-bold text-teal-400 mb-2 border-b border-gray-700 pb-1">Paper Summary</h3>
+                <div id="summaryText" class="text-sm text-gray-300 space-y-2 leading-relaxed"></div>
+            </div>
+        </section>
+
+        <section class="w-2/3 flex flex-col bg-gray-950">
+            <div id="chatBox" class="flex-1 p-6 overflow-y-auto space-y-4">
+                <div class="bg-gray-800 text-gray-300 rounded-lg p-4 max-w-xl text-sm">
+                    Upload a paper in the sidebar to extract its contents and start asking questions!
+                </div>
+            </div>
+
+            <form id="chatForm" class="p-4 bg-gray-900 border-t border-gray-800 flex gap-3">
+                <input type="text" id="userInput" placeholder="Ask a question about the paper..." class="flex-1 bg-gray-800 border border-gray-700 rounded-md px-4 py-2 text-sm text-gray-100 focus:outline-none focus:border-teal-500" disabled>
+                <button type="submit" id="sendBtn" class="bg-teal-600 hover:bg-teal-500 text-white px-5 py-2 rounded-md font-medium text-sm transition duration-200" disabled>Send</button>
+            </form>
+        </section>
+    </main>
+
+    <script>
+        const uploadForm = document.getElementById('uploadForm');
+        const chatForm = document.getElementById('chatForm');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const summaryContainer = document.getElementById('summaryContainer');
+        const summaryText = document.getElementById('summaryText');
+        const chatBox = document.getElementById('chatBox');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+
+        uploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fileInput = document.getElementById('pdfFile');
+            if (!fileInput.files[0]) return alert('Please select a file first.');
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            uploadBtn.innerText = 'Processing...';
+            uploadBtn.disabled = true;
+
+            try {
+                const res = await fetch('/upload', { method: 'POST', body: formData });
+                const data = await res.json();
+                
+                if (data.error) throw new Error(data.error);
+
+                summaryContainer.classList.remove('hidden');
+                summaryText.innerHTML = marked.parse(data.summary);
+                
+                userInput.disabled = false;
+                sendBtn.disabled = false;
+                chatBox.innerHTML += `<div class="text-teal-400 text-xs italic text-center my-2">Paper loaded successfully. You can now chat!</div>`;
+            } catch (err) {
+                alert('Error processing file: ' + err.message);
+            } finally {
+                uploadBtn.innerText = 'Process & Summarize';
+                uploadBtn.disabled = false;
+            }
+        });
+
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const msg = userInput.value.trim();
+            if (!msg) return;
+
+            chatBox.innerHTML += `<div class="flex justify-end"><div class="bg-teal-600 text-white text-sm rounded-lg p-3 max-w-xl shadow-md">${msg}</div></div>`;
+            userInput.value = '';
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            const botMsgId = 'bot-' + Date.now();
+            chatBox.innerHTML += `<div class="flex justify-start"><div id="${botMsgId}" class="bg-gray-800 text-gray-300 text-sm rounded-lg p-3 max-w-xl shadow-md italic text-gray-500">Thinking...</div></div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            try {
+                const res = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg })
+                });
+                const data = await res.json();
+                
+                const botBubble = document.getElementById(botMsgId);
+                botBubble.classList.remove('italic', 'text-gray-500');
+                botBubble.innerHTML = marked.parse(data.reply || data.error);
+            } catch (err) {
+                document.getElementById(botMsgId).innerText = "Error getting response.";
+            } finally {
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        });
+    </script>
+</body>
+</html>
