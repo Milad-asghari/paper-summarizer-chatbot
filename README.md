@@ -13,5 +13,5 @@ A lightweight, full-stack web workspace built using **Flask**, **Tailwind CSS**,
 
 ### 1. Clone the Repository
 ```bash
-git clone [https://github.com/Milad-asghari/paper-summarizer-chatbot.git](https://github.com/Milad-asghari/paper-summarizer-chatbot.git)
+git clone https://github.com/Milad-asghari/paper-summarizer-chatbot.git
 cd paper-summarizer-chatbot
